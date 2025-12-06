@@ -1,0 +1,30 @@
+# config/district_config.py
+
+# Coordinates of district administrative capitals (approx)
+DISTRICTS = {
+    "Colombo":      {"lat": 6.9271, "lon": 79.8612},
+    "Gampaha":      {"lat": 7.0897, "lon": 79.9925},
+    "Kalutara":     {"lat": 6.5854, "lon": 80.1650},
+    "Kandy":        {"lat": 7.2906, "lon": 80.6337},
+    "Matale":       {"lat": 7.4675, "lon": 80.6234},
+    "Nuwara Eliya": {"lat": 6.9497, "lon": 80.7891},
+    "Galle":        {"lat": 6.0535, "lon": 80.2210},
+    "Matara":       {"lat": 5.9549, "lon": 80.5550},
+    "Hambantota":   {"lat": 6.1240, "lon": 81.1185},
+    "Jaffna":       {"lat": 9.6615, "lon": 80.0255},
+    "Kilinochchi":  {"lat": 9.3803, "lon": 80.3773},
+    "Mannar":       {"lat": 8.9770, "lon": 79.9044},
+    "Vavuniya":     {"lat": 8.7510, "lon": 80.4970},
+    "Mullaitivu":   {"lat": 9.2671, "lon": 80.8141},
+    "Batticaloa":   {"lat": 7.7300, "lon": 81.6923},
+    "Ampara":       {"lat": 7.3018, "lon": 81.6747},
+    "Trincomalee":  {"lat": 8.5874, "lon": 81.2152},
+    "Kurunegala":   {"lat": 7.4863, "lon": 80.3620},
+    "Puttalam":     {"lat": 8.0400, "lon": 79.8400},
+    "Anuradhapura": {"lat": 8.3114, "lon": 80.4037},
+    "Polonnaruwa":  {"lat": 7.9396, "lon": 81.0011},
+    "Badulla":      {"lat": 6.9934, "lon": 81.0550},
+    "Monaragala":   {"lat": 6.8726, "lon": 81.3508},
+    "Ratnapura":    {"lat": 6.7056, "lon": 80.3847},
+    "Kegalle":      {"lat": 7.2513, "lon": 80.3464},
+}
