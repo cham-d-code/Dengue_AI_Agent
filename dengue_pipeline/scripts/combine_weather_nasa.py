@@ -5,8 +5,8 @@ import glob
 import pandas as pd
 
 IN_DIR = "data_raw/weather_nasa"
-OUT_DAILY = "data_interim/weather_daily_all_districts_2010_2024.csv"
-OUT_WEEKLY = "data_processed/weather_weekly_all_districts_2010_2024.csv"
+OUT_DAILY = "data_interim/weather_daily_all_districts_2010_2025.csv"
+OUT_WEEKLY = "data_processed/weather_weekly_all_districts_2010_2025.csv"
 
 os.makedirs("data_interim", exist_ok=True)
 os.makedirs("data_processed", exist_ok=True)

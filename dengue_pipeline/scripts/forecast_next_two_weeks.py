@@ -13,8 +13,9 @@ PROJECT_ROOT = os.path.dirname(THIS_DIR)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-DATA_FILE = os.path.join(PROJECT_ROOT, "data_processed", "weekly_district_dataset_2021_2024.csv")
+DATA_FILE = os.path.join(PROJECT_ROOT, "data_processed", "weekly_district_dataset_2021_2025.csv")
 OUT_MULTI = os.path.join(PROJECT_ROOT, "data_processed", "multiweek_forecast_next_2_weeks.csv")
+OPENMETEO_FILE = os.path.join(PROJECT_ROOT, "data_raw", "weather_forecast_openmeteo_7day.csv")
 
 # ----------------- Config / assumptions ----------------- #
 
@@ -150,6 +151,41 @@ def compute_baseline_weather(df: pd.DataFrame) -> pd.DataFrame:
     return base
 
 
+def load_future_weather() -> pd.DataFrame:
+    """
+    Load the latest Open-Meteo 7-day forecast and aggregate to weekly values.
+    Returns columns: district, year, week, rainfall_mm, temp_avg_c, humidity_pct.
+    """
+    if not os.path.exists(OPENMETEO_FILE):
+        return pd.DataFrame()
+
+    df = pd.read_csv(OPENMETEO_FILE)
+    if df.empty:
+        return pd.DataFrame()
+
+    df["date"] = pd.to_datetime(df["date"])
+    iso = df["date"].dt.isocalendar()
+    df["year"] = iso.year.astype(int)
+    df["week"] = iso.week.astype(int)
+
+    future = (
+        df.groupby(["district", "year", "week"], as_index=False)[
+            ["rain_daily_total", "temp_daily_avg", "humidity_daily_avg"]
+        ]
+        .agg({
+            "rain_daily_total": "sum",
+            "temp_daily_avg": "mean",
+            "humidity_daily_avg": "mean",
+        })
+        .rename(columns={
+            "rain_daily_total": "rainfall_mm",
+            "temp_daily_avg": "temp_avg_c",
+            "humidity_daily_avg": "humidity_pct",
+        })
+    )
+    return future
+
+
 def add_week_forward(year: int, week: int, delta_weeks: int = 1):
     """
     Move (year, week) forward by delta_weeks assuming 52 weeks per year.
@@ -240,6 +276,11 @@ def main():
     # Baselines
     baseline_cases = compute_baseline_cases(df, train_years=train_years)
     baseline_weather = compute_baseline_weather(df)
+    future_weather = load_future_weather()
+    if future_weather.empty:
+        print("Live Open-Meteo forecast not found; using climatology for future weeks.")
+    else:
+        print("Live Open-Meteo forecast loaded and will override climatology when available.")
 
     # For each district, find latest (year, week)
     latest_week = (
@@ -281,21 +322,34 @@ def main():
             # Move forward one week each loop
             cur_year, cur_week = add_week_forward(cur_year, cur_week, delta_weeks=1)
 
-            # Get "typical" future weather from climatology baseline
-            clim = baseline_weather[
-                (baseline_weather["district"] == district) &
-                (baseline_weather["week"] == cur_week)
+            weather_source = "climatology"
+            # Try to use live Open-Meteo forecast for this target week
+            live = future_weather[
+                (future_weather["district"] == district) &
+                (future_weather["year"] == cur_year) &
+                (future_weather["week"] == cur_week)
             ]
-
-            if clim.empty:
-                # fallback: use last observed week's weather
-                clim_rain = rain_seq[-1]
-                clim_temp = temp_seq[-1]
-                clim_hum = hum_seq[-1]
+            if not live.empty:
+                clim_rain = float(live["rainfall_mm"].iloc[0])
+                clim_temp = float(live["temp_avg_c"].iloc[0])
+                clim_hum = float(live["humidity_pct"].iloc[0])
+                weather_source = "open-meteo"
             else:
-                clim_rain = float(clim["clim_rainfall_mm"].iloc[0])
-                clim_temp = float(clim["clim_temp_avg_c"].iloc[0])
-                clim_hum = float(clim["clim_humidity_pct"].iloc[0])
+                clim = baseline_weather[
+                    (baseline_weather["district"] == district) &
+                    (baseline_weather["week"] == cur_week)
+                ]
+
+                if clim.empty:
+                    # fallback: use last observed week's weather
+                    clim_rain = rain_seq[-1]
+                    clim_temp = temp_seq[-1]
+                    clim_hum = hum_seq[-1]
+                    weather_source = "last_observed"
+                else:
+                    clim_rain = float(clim["clim_rainfall_mm"].iloc[0])
+                    clim_temp = float(clim["clim_temp_avg_c"].iloc[0])
+                    clim_hum = float(clim["clim_humidity_pct"].iloc[0])
 
             # Build feature row
             feat = {}
@@ -369,6 +423,7 @@ def main():
                 "rainfall_mm_used": clim_rain,
                 "temp_avg_c_used": clim_temp,
                 "humidity_pct_used": clim_hum,
+                "weather_source": weather_source,
                 "beds_needed": beds,
                 "blood_units_needed": blood,
                 "risk": risk,

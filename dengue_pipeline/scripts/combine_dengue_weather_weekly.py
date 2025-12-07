@@ -3,9 +3,9 @@
 import os
 import pandas as pd
 
-DENGUE = "data_processed/dengue_weekly_district_2010_2024.csv"
-WEATHER = "data_processed/weather_weekly_all_districts_2010_2024.csv"
-OUT = "data_processed/weekly_district_dataset_2010_2024.csv"
+DENGUE = "data_processed/dengue_weekly_district_2010_2025.csv"
+WEATHER = "data_processed/weather_weekly_all_districts_2010_2025.csv"
+OUT = "data_processed/weekly_district_dataset_2010_2025.csv"
 
 
 def main():

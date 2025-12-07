@@ -8,11 +8,11 @@ import pandas as pd
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(THIS_DIR)
 
-DENGUE_RAW = os.path.join(PROJECT_ROOT, "data_processed", "dengue_weekly_district_2021_2024.csv")
-WEATHER = os.path.join(PROJECT_ROOT, "data_processed", "weather_weekly_all_districts_2010_2024.csv")
+DENGUE_RAW = os.path.join(PROJECT_ROOT, "data_processed", "dengue_weekly_district_2021_2025.csv")
+WEATHER = os.path.join(PROJECT_ROOT, "data_processed", "weather_weekly_all_districts_2010_2025.csv")
 
-DENGUE_CLEAN_OUT = os.path.join(PROJECT_ROOT, "data_processed", "dengue_weekly_district_clean_2021_2024.csv")
-COMBINED_OUT = os.path.join(PROJECT_ROOT, "data_processed", "weekly_district_dataset_2021_2024.csv")
+DENGUE_CLEAN_OUT = os.path.join(PROJECT_ROOT, "data_processed", "dengue_weekly_district_clean_2021_2025.csv")
+COMBINED_OUT = os.path.join(PROJECT_ROOT, "data_processed", "weekly_district_dataset_2021_2025.csv")
 
 # ---------- Known Sri Lankan districts ---------- #
 

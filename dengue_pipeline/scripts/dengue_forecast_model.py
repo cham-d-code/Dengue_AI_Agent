@@ -15,8 +15,8 @@ PROJECT_ROOT = os.path.dirname(THIS_DIR)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-DATA_FILE = os.path.join(PROJECT_ROOT, "data_processed", "weekly_district_dataset_2021_2024.csv")
-OUT_PRED_2024 = os.path.join(PROJECT_ROOT, "data_processed", "forecast_2024_with_capacity.csv")
+DATA_FILE = os.path.join(PROJECT_ROOT, "data_processed", "weekly_district_dataset_2021_2025.csv")
+OUT_FORECAST = os.path.join(PROJECT_ROOT, "data_processed", "forecast_with_capacity.csv")
 
 # ----------------------------------------------------
 # Capacity & risk config (you can tune these)
@@ -293,9 +293,9 @@ def main():
     # Ensure only columns that actually exist
     cols_out = [c for c in cols_out if c in test.columns]
 
-    test[cols_out].to_csv(OUT_PRED_2024, index=False)
+    test[cols_out].to_csv(OUT_FORECAST, index=False)
     print(f"\nSaved detailed forecast for year {test_year} with capacity to:")
-    print(f"  {OUT_PRED_2024}")
+    print(f"  {OUT_FORECAST}")
 
     # Latest week per district in the test year
     latest_per_district = (

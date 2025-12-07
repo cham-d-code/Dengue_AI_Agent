@@ -5,7 +5,7 @@ import pdfplumber
 import pandas as pd
 
 IN_DIR = "data_raw/dengue_pdfs"
-OUT_FILE = "data_processed/dengue_weekly_district_2021_2024.csv"
+OUT_FILE = "data_processed/dengue_weekly_district_2021_2025.csv"
 
 os.makedirs("data_processed", exist_ok=True)
 
@@ -147,8 +147,8 @@ def main():
             print("  ⚠️ Could not detect year/week, skipping.")
             continue
 
-        if year < 2021 or year > 2024:
-            print("  ⚠️ Year outside 2021–2024, skipping.")
+        if year < 2021 or year > 2025:
+            print("  ⚠️ Year outside 2021–2025, skipping.")
             continue
 
         try:

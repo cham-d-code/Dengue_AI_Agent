@@ -14,6 +14,7 @@ YEAR_URLS = {
     2022: "https://dengue.health.gov.lk/web/index.php/en/publication-and-resources/publications/category/22-2022",
     2023: "https://dengue.health.gov.lk/web/index.php/en/publication-and-resources/publications/category/23-2023",
     2024: "https://dengue.health.gov.lk/web/index.php/en/publication-and-resources/publications/category/26-2024",
+    2025: "https://dengue.health.gov.lk/web/index.php/en/publication-and-resources/publications/category/27-2025",
 }
 
 OUT_DIR = "data_raw/dengue_pdfs"

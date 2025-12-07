@@ -23,7 +23,7 @@ from config.district_config import DISTRICTS  # now this should work
 BASE_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
 
 START = "2010-01-01"
-END   = "2024-12-31"
+END   = "2025-12-31"
 
 PARAMETERS = ["PRECTOTCORR", "T2M", "RH2M"]
 
@@ -65,7 +65,7 @@ def main():
         lat, lon = coords["lat"], coords["lon"]
         out_path = os.path.join(
             OUT_DIR,
-            f"nasa_daily_{district.replace(' ', '_')}_2010_2024.csv"
+            f"nasa_daily_{district.replace(' ', '_')}_2010_2025.csv"
         )
 
         if os.path.exists(out_path):
