@@ -170,6 +170,13 @@ table td, table th {
     font-size: 14px;
 }
 
+/* --- Chatbot text color fix --- */
+[data-testid="stChatMessage"] p,
+[data-testid="stChatMessage"] span,
+[data-testid="stChatMessage"] div {
+    color: #111111 !important;   /* dark text for all chat content */
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -442,6 +449,128 @@ else:
         </div>
         """, unsafe_allow_html=True)
 
+# =========================================================
+#                 CHATBOT ASSISTANT SECTION
+# =========================================================
+
+def generate_chat_answer(
+    question: str,
+    selected_district: str,
+    df_current: pd.DataFrame,
+    df_future: pd.DataFrame | None,
+    df_weather: pd.DataFrame | None,
+) -> str:
+    """Simple rule-based assistant that explains risk with reasoning."""
+
+    q_lower = question.lower()
+
+    # 1) Decide which district the user is asking about
+    district = selected_district
+    for d in df_current["district"].unique():
+        if d.lower() in q_lower:
+            district = d
+            break
+
+    # Latest epi row
+    latest = (
+        df_current[df_current["district"] == district]
+        .sort_values(["year", "week"])
+        .tail(1)
+        .iloc[0]
+    )
+    year = int(latest["year"])
+    week = int(latest["week"])
+    risk = str(latest["risk"]).lower()
+    pred_cases = int(round(latest["predicted_cases"]))
+    obs_cases = int(round(latest["cases"]))
+    last_year_cases = get_last_year_cases(df_current, district, year, week, obs_cases)
+
+    # 2) Forecast info (next 1–2 weeks)
+    forecast_text = "No forecast information is available for this district."
+    if df_future is not None and not df_future.empty:
+        f = df_future[df_future["district"] == district]
+        if not f.empty:
+            f_sorted = f.sort_values("horizon_weeks_ahead")
+            rows = []
+            for _, r in f_sorted.iterrows():
+                h = int(r["horizon_weeks_ahead"])
+                pc = int(round(r["predicted_cases"]))
+                beds = int(round(r.get("beds_needed", 0)))
+                blood = int(round(r.get("blood_units_needed", 0)))
+                rows.append(f"- In {h} week(s): ~{pc} cases, ~{beds} beds, ~{blood} blood units.")
+            forecast_text = "\n".join(rows)
+
+    # 3) Weather summary (next 7 days)
+    weather_text = "No weather alert data available."
+    if df_weather is not None and not df_weather.empty:
+        wd = df_weather[df_weather["district"] == district]
+        if not wd.empty:
+            # Use max rainfall row as "worst"
+            if "rainfall_mm" in wd.columns:
+                wrow = wd.sort_values("rainfall_mm", ascending=False).iloc[0]
+            else:
+                wrow = wd.iloc[0]
+
+            rain = float(wrow.get("rainfall_mm", np.nan))
+            temp = float(wrow.get("temp_mean", np.nan)) if "temp_mean" in wd.columns else float("nan")
+            hum = float(wrow.get("humidity_mean", np.nan)) if "humidity_mean" in wd.columns else float("nan")
+            env_risk = str(wrow.get("env_risk", "unknown")).replace("_", " ")
+
+            parts = [f"Environmental risk is **{env_risk}** based on forecasted conditions."]
+            if not np.isnan(rain):
+                parts.append(f"Weekly rainfall is around **{rain:.1f} mm**.")
+            if not np.isnan(temp):
+                parts.append(f"Average temperature is about **{temp:.1f} °C**.")
+            if not np.isnan(hum):
+                parts.append(f"Average humidity is about **{hum:.0f}%**.")
+            weather_text = " ".join(parts)
+
+    # 4) Explain why risk level
+    risk_reason = []
+    risk_reason.append(f"- Latest observed cases: **{obs_cases}** (week {week}, {year}).")
+    risk_reason.append(f"- Same week last year: **{last_year_cases}** cases.")
+    diff = pred_cases - last_year_cases
+    if diff > 0:
+        risk_reason.append(f"- Model predicts **{pred_cases}** cases this week ({diff:+d} vs last year).")
+    else:
+        risk_reason.append(f"- Model predicts **{pred_cases}** cases this week ({diff:+d} vs last year).")
+
+    # Our simple threshold rule
+    if pred_cases < 10:
+        risk_reason.append("- Predicted cases are low in absolute numbers (< 10).")
+    elif pred_cases < 25:
+        risk_reason.append("- Predicted cases are in a moderate range (10–24).")
+    elif pred_cases < 75:
+        risk_reason.append("- Predicted cases are high (25–74), suggesting a larger outbreak.")
+    else:
+        risk_reason.append("- Predicted cases are very high (≥ 75), indicating a critical situation.")
+
+    explanation = f"""
+You asked about **{district}**.
+
+### 1. Current situation
+- Current model risk level: **{risk.upper()}**  
+- Observed cases this week: **{obs_cases}**  
+- Predicted cases this week: **{pred_cases}**
+
+### 2. Comparison with last year
+- Same week last year: **{last_year_cases}** cases  
+- Change vs last year: **{pred_cases - last_year_cases:+d}** cases  
+
+### 3. Why is the risk at this level?
+{chr(10).join(risk_reason)}
+
+### 4. Forecast for the next 1–2 weeks
+{forecast_text}
+
+### 5. Weather conditions and vector risk
+{weather_text}
+
+These numbers are meant to support planning, not replace clinical or public health judgement. You can adjust thresholds or hospital resource factors if MoH guidelines change.
+""".strip()
+
+    return explanation
+
 # ------------------- Downloads ------------------- #
 st.markdown("## Download Data")
 
@@ -469,3 +598,41 @@ with colC:
             df_weather.to_csv(index=False),
             file_name="weather_risk_alerts.csv"
         )
+
+# =========================================================
+#                 CHATBOT ASSISTANT UI
+# =========================================================
+
+st.markdown("---")
+st.markdown("## Chat with the Dengue Planning Assistant")
+
+# Initialise chat history
+if "chat_history" not in st.session_state:
+    st.session_state["chat_history"] = []
+
+# Display previous messages
+for role, content in st.session_state["chat_history"]:
+    with st.chat_message(role):
+        st.markdown(content)
+
+# Chat input
+user_q = st.chat_input("Ask about risk, forecast, beds, last year data, or weather…")
+
+if user_q:
+    # Show user question
+    st.session_state["chat_history"].append(("user", user_q))
+    with st.chat_message("user"):
+        st.markdown(user_q)
+
+    # Generate answer
+    answer = generate_chat_answer(
+        user_q,
+        selected_district,
+        df_current,
+        df_future,
+        df_weather
+    )
+
+    st.session_state["chat_history"].append(("assistant", answer))
+    with st.chat_message("assistant"):
+        st.markdown(answer)
