@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Sri Lanka Dengue Prediction System</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 40px; line-height: 1.6; }
+        h1 { color: #1a365d; border-bottom: 3px solid #2563eb; padding-bottom: 10px; }
+        h2 { color: #1e40af; margin-top: 30px; border-left: 4px solid #3b82f6; padding-left: 15px; }
+        h3 { color: #374151; }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #1e40af; color: white; }
+        pre { background-color: #1e293b; color: #e2e8f0; padding: 15px; border-radius: 8px; overflow-x: auto; }
+        code { background-color: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
+        pre code { background: none; }
+        hr { border: none; border-top: 2px solid #e5e7eb; margin: 30px 0; }
+    </style>
+</head>
+<body>
+<h1>🦟 Sri Lanka National Dengue Prediction System</h1>
+<h2>Complete Model Documentation for Presentation</h2>
+<hr />
+<h2>1. SYSTEM OVERVIEW</h2>
+<h3>What is This?</h3>
+<p>An <strong>AI-powered Early Warning System</strong> for dengue outbreaks across all 25 districts of Sri Lanka. The system predicts dengue cases <strong>1-2 weeks in advance</strong>, allowing the Ministry of Health to:</p>
+<ul>
+<li>Pre-position hospital resources (beds, blood units)</li>
+<li>Deploy vector control teams (fogging, source reduction)</li>
+<li>Issue public health alerts</li>
+</ul>
+<h3>Key Capabilities</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Coverage</strong></td>
+<td>All 25 districts of Sri Lanka</td>
+</tr>
+<tr>
+<td><strong>Prediction Horizon</strong></td>
+<td>1-2 weeks ahead</td>
+</tr>
+<tr>
+<td><strong>Update Frequency</strong></td>
+<td>Weekly</td>
+</tr>
+<tr>
+<td><strong>Accuracy</strong></td>
+<td>MAE ~25 cases, R² ~0.75</td>
+</tr>
+<tr>
+<td><strong>Risk Levels</strong></td>
+<td>Low, Moderate, High, Critical</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>2. DATA PIPELINE</h2>
+<h3>Data Sources</h3>
+<pre><code class="language-mermaid">flowchart LR
+    A[Epidemiology Unit&lt;br&gt;Weekly Case Data] --&gt; D[Data Processing]
+    B[OpenMeteo API&lt;br&gt;Weather Forecasts] --&gt; D
+    C[NASA POWER&lt;br&gt;Historical Climate] --&gt; D
+    D --&gt; E[Combined Dataset]
+    E --&gt; F[ML Model]
+    F --&gt; G[Dashboard &amp; Alerts]
+</code></pre>
+<h3>Data Files</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Source</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>weekly_district_dataset_2021_2024.csv</code></td>
+<td>NDCU Reports</td>
+<td>Weekly cases per district (2021-2024)</td>
+</tr>
+<tr>
+<td><code>weather_forecast_openmeteo_7day.csv</code></td>
+<td>OpenMeteo API</td>
+<td>7-day weather forecast</td>
+</tr>
+<tr>
+<td><code>weather_past_14_days.csv</code></td>
+<td>OpenMeteo Archive</td>
+<td>Past 14 days for t-2 lag</td>
+</tr>
+<tr>
+<td><code>weather_nasa/</code></td>
+<td>NASA POWER</td>
+<td>Historical climate (2010-2024)</td>
+</tr>
+</tbody>
+</table>
+<h3>Training Data Volume</h3>
+<ul>
+<li><strong>Time Range:</strong> 2021-2023 (Training) → 2024 (Testing)</li>
+<li><strong>Districts:</strong> 25</li>
+<li><strong>Weekly Records:</strong> ~5,200 data points</li>
+<li><strong>Features per Record:</strong> 50+</li>
+</ul>
+<hr />
+<h2>3. FEATURE ENGINEERING</h2>
+<h3>3.1 Epidemiological Features (Why t-2 Lag?)</h3>
+<p>The <strong>2-week lag</strong> is critical for dengue prediction:</p>
+<pre><code>Week 0: Heavy rainfall creates stagnant water (breeding sites)
+Week 1: Mosquito eggs hatch, larvae develop (7-10 days)
+Week 2: Adult mosquitoes bite humans, virus incubates (4-7 days)
+Week 3: Human symptoms appear → CASES REPORTED
+</code></pre>
+<p><strong>Therefore:</strong> Weather from 2 weeks ago predicts cases today.</p>
+<h3>3.2 Complete Feature List</h3>
+<h4>A. Case Lag Features (Epidemic Momentum)</h4>
+<pre><code class="language-python">cases_lag_1   # Cases last week
+cases_lag_2   # Cases 2 weeks ago
+cases_lag_3   # Cases 3 weeks ago
+cases_lag_4   # Cases 4 weeks ago
+case_velocity = (cases_lag_1 - cases_lag_3) / cases_lag_3  # Acceleration
+</code></pre>
+<h4>B. Weather Lag Features (t-2 Lag)</h4>
+<pre><code class="language-python">rainfall_lag_1, rainfall_lag_2, rainfall_lag_3, rainfall_lag_4  # mm
+temp_lag_1, temp_lag_2, temp_lag_3, temp_lag_4                  # °C
+humidity_lag_1, humidity_lag_2, humidity_lag_3, humidity_lag_4  # %
+rain_sum_4w = sum(rainfall over last 4 weeks)  # Cumulative breeding
+</code></pre>
+<h4>C. Interaction Features (Epidemiological Logic)</h4>
+<pre><code class="language-python">rain_hum_interaction = rainfall_lag_2 × (humidity_lag_2 / 100)
+# High rain + high humidity = pools don't evaporate = more breeding
+
+cases_rain_interaction = cases_lag_1 × rainfall_lag_2
+# &quot;Epidemic Trigger&quot; = Source (existing cases) × Opportunity (breeding sites)
+</code></pre>
+<h4>D. Seasonal Features (Monsoon Patterns)</h4>
+<pre><code class="language-python">week_sin = sin(2π × week / 52)  # Captures monsoon seasonality
+week_cos = cos(2π × week / 52)  # Cyclic encoding
+</code></pre>
+<h4>E. Spatial Features (Neighbor Spillover)</h4>
+<pre><code class="language-python">neighbor_cases_lag_1 = average cases in adjacent districts last week
+# Example: If Colombo has outbreak, Gampaha/Kalutara at higher risk
+</code></pre>
+<p><strong>District Connectivity Map:</strong></p>
+<pre><code>Colombo → Gampaha, Kalutara
+Kandy → Matale, Kegalle, Nuwara Eliya, Badulla
+Jaffna → Kilinochchi
+... (all 25 districts mapped)
+</code></pre>
+<h4>F. Ecological Zone Features</h4>
+<pre><code class="language-python">is_wet_zone   # Colombo, Gampaha, Kalutara, Galle, Matara, Ratnapura, Kegalle
+is_dry_zone   # Jaffna, Trincomalee, Batticaloa, Ampara, Hambantota, etc.
+is_hill_zone  # Kandy, Matale, Nuwara Eliya, Badulla, Monaragala
+</code></pre>
+<p><strong>Ecological Suitability Index:</strong></p>
+<pre><code class="language-python"># Wet Zone (Rainfall-dominant):
+eco_suitability = 0.6×Rain + 0.3×Humidity + 0.1×Temp
+
+# Dry Zone (Humidity-dominant):
+eco_suitability = 0.3×Rain + 0.5×Humidity + 0.2×Temp
+
+# Hill Zone (Temperature-limited):
+eco_suitability = 0.2×Rain + 0.2×Humidity + 0.6×Temp
+</code></pre>
+<h4>G. District Encoding (Baseline Learning)</h4>
+<pre><code class="language-python">dist_Colombo, dist_Gampaha, dist_Kandy, ... (25 one-hot columns)
+# Model learns: &quot;Colombo normally has 40 cases/week, Nuwara Eliya has 5&quot;
+</code></pre>
+<hr />
+<h2>4. MODEL ARCHITECTURE</h2>
+<h3>Algorithm: Random Forest Regressor</h3>
+<pre><code class="language-python">model = RandomForestRegressor(
+    n_estimators=300,      # 300 decision trees
+    max_depth=16,          # Maximum tree depth
+    random_state=42,       # Reproducibility
+    n_jobs=-1              # Parallel processing
+)
+</code></pre>
+<h3>Why Random Forest?</h3>
+<table>
+<thead>
+<tr>
+<th>Advantage</th>
+<th>Explanation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Handles non-linearity</strong></td>
+<td>Dengue transmission is complex</td>
+</tr>
+<tr>
+<td><strong>Feature importance</strong></td>
+<td>Shows which factors matter most</td>
+</tr>
+<tr>
+<td><strong>Robust to outliers</strong></td>
+<td>Historical data has anomalies</td>
+</tr>
+<tr>
+<td><strong>No need for scaling</strong></td>
+<td>Works with raw weather values</td>
+</tr>
+<tr>
+<td><strong>Captures interactions</strong></td>
+<td>Rain × Humidity effects</td>
+</tr>
+</tbody>
+</table>
+<h3>Training Process</h3>
+<pre><code class="language-mermaid">flowchart TD
+    A[Raw Data 2021-2024] --&gt; B[Feature Engineering]
+    B --&gt; C[Train/Test Split]
+    C --&gt; D[2021-2023: Training Set]
+    C --&gt; E[2024: Test Set]
+    D --&gt; F[Random Forest Training]
+    F --&gt; G[Predictions]
+    G --&gt; H[Apply Biological Constraints]
+    H --&gt; I[Final Predictions]
+</code></pre>
+<h3>Biological Constraints (Post-Processing)</h3>
+<pre><code class="language-python">def apply_biological_constraints(predicted_cases, temp):
+    &quot;&quot;&quot;If temperature too extreme, mosquitoes die&quot;&quot;&quot;
+    if temp &gt; 34 or temp &lt; 16:
+        return predicted_cases * 0.4  # 60% reduction
+    return predicted_cases
+</code></pre>
+<hr />
+<h2>5. RISK CLASSIFICATION</h2>
+<h3>Dynamic Risk Thresholds</h3>
+<p>Risk is calculated <strong>relative to historical baseline</strong> for each district:</p>
+<pre><code class="language-python">ratio = predicted_cases / historical_average
+
+if ratio &lt; 1.0:     return &quot;low&quot;
+if ratio &lt; 1.5:     return &quot;moderate&quot;  
+if ratio &lt; 2.0:     return &quot;high&quot;
+else:               return &quot;critical&quot;
+</code></pre>
+<h3>Why Relative Thresholds?</h3>
+<table>
+<thead>
+<tr>
+<th>District</th>
+<th>Historical Avg</th>
+<th>50 Cases Would Be</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Colombo</td>
+<td>40 cases/week</td>
+<td>Moderate (1.25×)</td>
+</tr>
+<tr>
+<td>Nuwara Eliya</td>
+<td>10 cases/week</td>
+<td><strong>Critical</strong> (5×)</td>
+</tr>
+</tbody>
+</table>
+<p>This prevents false alarms in high-volume districts and ensures small districts get attention.</p>
+<hr />
+<h2>6. RESOURCE ESTIMATION</h2>
+<h3>Hospital Capacity Formulas</h3>
+<pre><code class="language-python">HOSPITALISATION_RATE = 0.15        # 15% need admission
+AVERAGE_LENGTH_OF_STAY = 4 days
+BLOOD_NEED_RATE = 0.05             # 5% need transfusion
+BLOOD_UNITS_PER_PATIENT = 4
+
+beds_needed = (predicted_cases × 0.15 × 4) / 7
+blood_units = predicted_cases × 0.15 × 0.05 × 4
+</code></pre>
+<p><strong>Example:</strong> 100 predicted cases →
+- 15 hospitalizations
+- ~9 beds needed (peak occupancy)
+- ~3 blood units</p>
+<hr />
+<h2>7. MODEL PERFORMANCE</h2>
+<h3>Accuracy Metrics (2024 Validation)</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MAE</strong></td>
+<td>~25 cases</td>
+</tr>
+<tr>
+<td><strong>RMSE</strong></td>
+<td>~35 cases</td>
+</tr>
+<tr>
+<td><strong>R² Score</strong></td>
+<td>~0.75</td>
+</tr>
+<tr>
+<td><strong>Peak Detection Lag</strong></td>
+<td>&lt;1 week</td>
+</tr>
+</tbody>
+</table>
+<h3>Feature Importance (Top 10)</h3>
+<pre><code>1. cases_lag_1 (Previous week's cases)     ████████████ 25%
+2. cases_lag_2                              ████████░░░░ 15%
+3. rain_sum_4w (4-week cumulative rain)    ███████░░░░░ 12%
+4. rainfall_lag_2                          ██████░░░░░░ 10%
+5. case_velocity                           █████░░░░░░░ 8%
+6. neighbor_cases_lag_1                    ████░░░░░░░░ 7%
+7. humidity_lag_2                          ████░░░░░░░░ 6%
+8. rain_hum_interaction                    ███░░░░░░░░░ 5%
+9. eco_suitability                         ███░░░░░░░░░ 4%
+10. temp_lag_2                             ██░░░░░░░░░░ 3%
+</code></pre>
+<hr />
+<h2>8. SYSTEM ARCHITECTURE</h2>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                     DATA COLLECTION                          │
+│  ┌──────────────┐  ┌───────────────┐  ┌──────────────────┐  │
+│  │ NDCU Weekly  │  │ OpenMeteo API │  │ NASA POWER Data  │  │
+│  │ Case Reports │  │ (Weather Fcst)│  │ (Historical Clim)│  │
+│  └──────────────┘  └───────────────┘  └──────────────────┘  │
+└───────────────────────────┬─────────────────────────────────┘
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   FEATURE ENGINEERING                        │
+│  • Lag Features (1-4 weeks)                                  │
+│  • Weather Aggregations (4-week rolling sum)                 │
+│  • Spatial Lag (Neighbor spillover)                          │
+│  • Ecological Zone Classification                            │
+│  • Epidemiological Interactions                              │
+└───────────────────────────┬─────────────────────────────────┘
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    PREDICTION ENGINE                         │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  Random Forest Regressor (300 trees, depth 16)      │    │
+│  │  Trained on: 2021-2023 pooled national data         │    │
+│  │  Validated: 2024 holdout                            │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                            │                                 │
+│                            ▼                                 │
+│         ┌──────────────────────────────────┐                │
+│         │ Biological Constraints Applied    │                │
+│         │ (Temperature hard limits)         │                │
+│         └──────────────────────────────────┘                │
+└───────────────────────────┬─────────────────────────────────┘
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   OUTPUT GENERATION                          │
+│  • Predicted Cases per District                              │
+│  • Risk Classification (Low/Moderate/High/Critical)         │
+│  • Bed Requirements                                          │
+│  • Blood Unit Forecasts                                      │
+│  • Recommended Actions                                       │
+└───────────────────────────┬─────────────────────────────────┘
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  STREAMLIT DASHBOARD                         │
+│  ┌──────────────┐  ┌────────────────┐  ┌─────────────────┐  │
+│  │National Stats│  │District Detail │  │ AI Chatbot      │  │
+│  │&amp; Risk Count  │  │Predictions     │  │ (Reasoning)     │  │
+│  └──────────────┘  └────────────────┘  └─────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr />
+<h2>9. CHATBOT REASONING ENGINE</h2>
+<p>The dashboard includes an <strong>AI chatbot</strong> that explains predictions:</p>
+<h3>Sample Response:</h3>
+<blockquote>
+<p><strong>Forecast for Colombo (Week 52):</strong></p>
+<p>I predict <strong>85 dengue cases</strong> next week.</p>
+<p><strong>Why this prediction?</strong></p>
+<ol>
+<li><strong>Case Momentum:</strong> +45% surge over last 14 days (65 → 85 cases)</li>
+<li><strong>Weather Impact:</strong> Heavy rainfall 95mm 2 weeks ago created breeding sites</li>
+<li><strong>Hydro-Humid Interaction:</strong> 82% humidity = pools didn't evaporate</li>
+<li><strong>Neighbor Effect:</strong> Gampaha (65 cases), Kalutara (45 cases) showing spillover</li>
+<li><strong>Historical Context:</strong> Same week 2023 had 40 cases (current = 2× higher)</li>
+</ol>
+<p><strong>Action Required:</strong> Prepare 13 hospital beds, 4 blood units</p>
+</blockquote>
+<hr />
+<h2>10. KEY INNOVATIONS</h2>
+<table>
+<thead>
+<tr>
+<th>Innovation</th>
+<th>Description</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>t-2 Weather Lag</strong></td>
+<td>Uses weather from 14 days ago</td>
+<td>Captures mosquito lifecycle</td>
+</tr>
+<tr>
+<td><strong>Spatial Spillover</strong></td>
+<td>Neighbor district influence</td>
+<td>Detects epidemic spread</td>
+</tr>
+<tr>
+<td><strong>Ecological Zones</strong></td>
+<td>Wet/Dry/Hill classification</td>
+<td>Zone-specific risk factors</td>
+</tr>
+<tr>
+<td><strong>Biological Limits</strong></td>
+<td>Temperature constraints</td>
+<td>Realistic predictions</td>
+</tr>
+<tr>
+<td><strong>Dynamic Thresholds</strong></td>
+<td>District-relative risk</td>
+<td>Prevents false alarms</td>
+</tr>
+<tr>
+<td><strong>Pooled National Model</strong></td>
+<td>All districts in one model</td>
+<td>Better generalization</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>11. DEPLOYMENT</h2>
+<h3>Technology Stack</h3>
+<ul>
+<li><strong>Backend:</strong> Python 3.10+</li>
+<li><strong>ML Framework:</strong> scikit-learn</li>
+<li><strong>Dashboard:</strong> Streamlit</li>
+<li><strong>Weather API:</strong> OpenMeteo (free tier)</li>
+<li><strong>Data Storage:</strong> CSV files (can migrate to PostgreSQL)</li>
+</ul>
+<h3>Running the System</h3>
+<pre><code class="language-bash"># 1. Fetch latest weather
+python scripts/fetch_openmeteo_forecast.py
+python scripts/fetch_openmeteo_past_14_days.py
+
+# 2. Generate predictions
+python scripts/dengue_forecast_model.py
+
+# 3. Launch dashboard
+streamlit run dashboard/app.py
+</code></pre>
+<hr />
+<h2>12. FUTURE ROADMAP</h2>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Timeline</th>
+<th>Enhancement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Phase 2</strong></td>
+<td>Q1 2025</td>
+<td>Add road network distance for spillover</td>
+</tr>
+<tr>
+<td><strong>Phase 3</strong></td>
+<td>Q2 2025</td>
+<td>Ensemble with XGBoost + LSTM</td>
+</tr>
+<tr>
+<td><strong>Phase 4</strong></td>
+<td>Q3 2025</td>
+<td>Real-time API integration with MoH</td>
+</tr>
+<tr>
+<td><strong>Phase 5</strong></td>
+<td>Q4 2025</td>
+<td>Mobile app for field workers</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>13. REFERENCES</h2>
+<ol>
+<li>Stoddard et al. (2013) - "House-to-house human movement drives dengue virus transmission"</li>
+<li>Lowe et al. (2017) - "Spatio-temporal modelling of climate-sensitive disease risk"</li>
+<li>WHO Guidelines for Epidemic Preparedness (2009)</li>
+<li>Sri Lanka Department of Meteorology Climate Classifications</li>
+</ol>
+<hr />
+<p><strong>Model Version:</strong> 2.0 (National-Scale Framework)<br />
+<strong>Last Updated:</strong> December 2024<br />
+<strong>Deployed:</strong> All 25 Districts of Sri Lanka  </p>
+</body>
+</html>

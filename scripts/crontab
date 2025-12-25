@@ -1,0 +1,8 @@
+# Dengue Data Update Cron Schedule
+# Runs every Monday at 6:00 AM Sri Lanka time (UTC+5:30)
+# Format: minute hour day month weekday command
+
+# Weekly weather data update - Every Monday at 6 AM
+0 6 * * 1 /app/weekly_update.sh >> /var/log/cron.log 2>&1
+
+# Empty line required at end of crontab

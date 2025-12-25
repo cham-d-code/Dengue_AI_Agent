@@ -1,0 +1,30 @@
+=== AUDIT REPORT ===
+Train Rows: 1938, Test Rows: 485
+Test Years: [2024]
+
+[MONSOON RESIDUALS]
+season
+Inter-Monsoon           40.079547
+May-Aug (SW Monsoon)    24.742146
+Oct-Jan (NE Monsoon)    24.792918
+
+[PEAK TIMING]
+Trincomalee: Act W15 vs Pred W16 (Lag 1)
+Ampara: Act W15 vs Pred W17 (Lag 2)
+Badulla: Act W50 vs Pred W51 (Lag 1)
+Colombo: Act W24 vs Pred W25 (Lag 1)
+Galle: Act W24 vs Pred W25 (Lag 1)
+Avg Lag: 3.85 weeks
+
+[CORRELATION LAG 2]
+Rain: 0.132
+Temp: -0.090
+Hum: 0.176
+
+[TEMP THRESHOLDS]
+temp_bin
+(0, 20]           NaN
+(20, 24]     9.994073
+(24, 30]    32.405954
+(30, 32]    17.869780
+(32, 40]          NaN

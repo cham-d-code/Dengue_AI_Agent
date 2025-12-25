@@ -67,7 +67,7 @@ def main():
 
     if alerts.empty:
         print("✅ No dengue-favourable weather alerts for the next 7 days.")
-        return
+
 
     alerts.to_csv(OUT_ALERTS, index=False)
 
@@ -96,3 +96,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

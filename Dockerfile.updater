@@ -1,0 +1,35 @@
+# Dockerfile for Data Updater (Weekly Automation)
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install system dependencies including cron
+RUN apt-get update && apt-get install -y \
+    cron \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy and install Python requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY dengue_pipeline/ ./dengue_pipeline/
+
+# Copy automation scripts
+COPY scripts/weekly_update.sh /app/weekly_update.sh
+COPY scripts/crontab /etc/cron.d/data-cron
+
+# Make scripts executable and set permissions
+RUN chmod +x /app/weekly_update.sh
+RUN chmod 0644 /etc/cron.d/data-cron
+RUN crontab /etc/cron.d/data-cron
+
+# Create log file
+RUN touch /var/log/cron.log
+
+# Environment
+ENV TZ=Asia/Colombo
+
+# Run cron in foreground
+CMD ["cron", "-f"]

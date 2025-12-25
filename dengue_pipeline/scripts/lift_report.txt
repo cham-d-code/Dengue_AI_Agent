@@ -1,0 +1,30 @@
+============================================================
+   ANTIGRAVITY A/B TEST: VALUE OF NDCU CLINICAL DATA
+============================================================
+Experiment: "Weather Alone" vs. "Weather + Past Cases"
+Target Year: 2024 (Test Set)
+
+1. MODEL A: WEATHER ONLY (Opportunity)
+--------------------------------------
+Features: Rainfall, Temperature, Humidity, Rolling Sums
+R2 Score: 0.0788
+MAE:      70.46 cases
+
+2. MODEL B: FULL MODEL (Opportunity + Source)
+---------------------------------------------
+Features: Model A + Past Cases (Lags) + Case Velocity
+R2 Score: 0.7107
+MAE:      29.72 cases
+
+3. THE "NDCU LIFT"
+------------------
+Accuracy Gain (R2): +0.6319 
+Error Reduction:    40.74 fewer miss-predicted cases per week
+
+4. CONCLUSION
+-------------
+Adding past NDDCU case data provides a massive lift in accuracy.
+Weather determines the *potential* for an outbreak, but previous 
+cases determine the *magnitude*. 
+The "Epidemic Trigger" interaction (Source x Opportunity) is validated.
+============================================================
