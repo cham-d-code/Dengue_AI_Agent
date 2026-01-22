@@ -230,63 +230,56 @@ def agent_response(prompt):
     next_week_start = today + timedelta(days=(7 - today.weekday()))
     next_week_end = next_week_start + timedelta(days=6)
     
-    # Simulated historical data (in production, this would come from database)
-    # Using realistic Sri Lankan dengue patterns
-    historical_same_week_last_year = max(5, int(pred * random.uniform(0.6, 0.9)))
-    cases_4_weeks_ago = max(3, int(obs * random.uniform(0.5, 0.7)))
-    cases_2_weeks_ago = max(4, int(obs * random.uniform(0.7, 0.9)))
+    # ===========================================================================
+    # REAL HISTORICAL DATA (2021-2024) - Replaces simulation
+    # ===========================================================================
+    from historical_analysis import (
+        get_historical_cases, 
+        get_historical_with_weather,
+        get_weather_lagged,
+        find_similar_weather_periods,
+        calculate_weather_case_correlation,
+        get_trend_analysis
+    )
     
-    # Weather data - Use REAL past data for t-2 lag analysis
-    rainfall_current = 0
-    temp_current = 28.0
-    humidity_current = 75
-    rainfall_last_year = 0
-    temp_last_year = 27.0
-    humidity_last_year = 70
+    # Get real historical cases for same week across years
+    historical_data = get_historical_with_weather(sel_dist, week_num, years=[2024, 2023, 2022, 2021])
     
-    # Get weather from ~14 days ago (t-2 lag for dengue transmission)
-    two_weeks_ago = (today - timedelta(days=14)).strftime('%Y-%m-%d')
-    one_week_ago = (today - timedelta(days=7)).strftime('%Y-%m-%d')
+    # Extract values for backwards compatibility
+    cases_by_year = {h['year']: h['cases'] for h in historical_data if h['cases'] is not None}
+    historical_same_week_last_year = cases_by_year.get(2024, cases_by_year.get(2023, pred))
     
-    if not df_wx_past.empty:
-        # Get 2-weeks-ago weather (REAL data for t-2 lag)
-        wx_past_2w = df_wx_past[(df_wx_past['district'] == sel_dist) & 
-                                 (df_wx_past['date'] == two_weeks_ago)]
-        if not wx_past_2w.empty:
-            rainfall_current = float(wx_past_2w.iloc[0].get('rainfall_mm', 0))
-            temp_current = float(wx_past_2w.iloc[0].get('temp_avg', 28))
-        else:
-            # Fallback: get latest available past data for this district
-            wx_dist = df_wx_past[df_wx_past['district'] == sel_dist].sort_values('date', ascending=False)
-            if not wx_dist.empty:
-                rainfall_current = float(wx_dist.iloc[0].get('rainfall_mm', 0))
-                temp_current = float(wx_dist.iloc[0].get('temp_avg', 28))
+    # Get trend from 2024 data
+    trend_info = get_trend_analysis(sel_dist, week_num)
+    velocity_pct = trend_info['change_pct']
     
-    # Get humidity from forecast data (past data doesn't have humidity)
-    if not df_wx.empty:
-        wx_row = df_wx[df_wx['district'] == sel_dist]
-        if not wx_row.empty:
-            humidity_current = float(wx_row.iloc[0].get('humidity_pct', 78))
-            # Use last year estimates (historical comparison)
-            rainfall_last_year = max(10, rainfall_current * random.uniform(0.4, 0.7))
-            humidity_last_year = max(60, humidity_current - random.randint(5, 15))
-            temp_last_year = temp_current - random.uniform(0.5, 1.5)
-
+    # For display - get cases from weeks ago in 2024 data
+    cases_4_weeks_ago = get_historical_cases(sel_dist, max(1, week_num - 4), [2024]).get(2024, obs)
+    cases_2_weeks_ago = get_historical_cases(sel_dist, max(1, week_num - 2), [2024]).get(2024, obs)
     
-    # Calculate velocity (14-day trend)
-    if cases_2_weeks_ago > 0:
-        velocity_pct = ((obs - cases_2_weeks_ago) / cases_2_weeks_ago) * 100
-    else:
-        velocity_pct = 100 if obs > 0 else 0
+    # Get current weather (t-2 lag from 2024)
+    current_weather = get_weather_lagged(sel_dist, 2024, week_num, lag=2)
+    rainfall_current = current_weather['rainfall_mm']
+    temp_current = current_weather['temp_avg_c']
+    humidity_current = current_weather['humidity_pct']
+    
+    # Get last year's weather for same period
+    last_year_weather = get_weather_lagged(sel_dist, 2023, week_num, lag=2)
+    rainfall_last_year = last_year_weather['rainfall_mm']
+    temp_last_year = last_year_weather['temp_avg_c']
+    humidity_last_year = last_year_weather['humidity_pct']
     
     # Calculate year-over-year change
-    if historical_same_week_last_year > 0:
+    if historical_same_week_last_year and historical_same_week_last_year > 0:
         yoy_change = ((pred - historical_same_week_last_year) / historical_same_week_last_year) * 100
     else:
-        yoy_change = 100
+        yoy_change = 0
     
     # Rainfall impact calculation
-    rainfall_change = ((rainfall_current - rainfall_last_year) / max(1, rainfall_last_year)) * 100
+    if rainfall_last_year > 0:
+        rainfall_change = ((rainfall_current - rainfall_last_year) / rainfall_last_year) * 100
+    else:
+        rainfall_change = 100 if rainfall_current > 0 else 0
     
     # Hydro-Humid Interaction check
     hydro_humid_active = humidity_current > 75 and rainfall_current > 30
@@ -294,61 +287,67 @@ def agent_response(prompt):
     # Biological limits check
     temp_optimal = 24 <= temp_current <= 30
     
+    # Get weather-case correlations
+    correlations = calculate_weather_case_correlation(sel_dist)
+    
     # =========================================================================
     # BUILD DETAILED RESPONSE
     # =========================================================================
     
     def generate_detailed_forecast():
+        # Build historical comparison table
+        hist_table = "| Year | Week " + str(week_num) + " Cases | Weather (t-2 lag) |\n|------|---------------|-------------------|\n"
+        for h in historical_data:
+            cases_str = str(h['cases']) if h['cases'] is not None else "No data"
+            weather_str = f"{h['rainfall_mm']:.0f}mm, {h['temp_avg_c']:.1f}°C"
+            hist_table += f"| {h['year']} | {cases_str} | {weather_str} |\n"
+        
         response = f"""## Detailed Forecast: {sel_dist} District (Week {week_num + 1})
 
 ---
 
-### 1. Timeframe & Historical Context
+### 1. Historical Data Analysis (2021-2024)
 
 **Prediction Period:** {next_week_start.strftime('%b %d')} – {next_week_end.strftime('%b %d, %Y')}
 
-**Historical Baseline:** In the same week of {today.year - 1}, {sel_dist} reported **{historical_same_week_last_year} cases**.
+**Same Week Across Years (Real Data):**
 
-**Current Trend (Case Velocity):** Over the last 14 days, cases moved from {cases_2_weeks_ago} → {obs} (**{velocity_pct:+.0f}% {'surge' if velocity_pct > 0 else 'decline'}**).
+{hist_table}
 
-| Week | Cases |
-|------|-------|
-| 4 weeks ago | {cases_4_weeks_ago} |
-| 2 weeks ago | {cases_2_weeks_ago} |
-| Last week | {obs} |
-| **Forecast** | **{pred}** |
+**Current Trend:** {trend_info['trend'].capitalize()} ({velocity_pct:+.0f}% over recent weeks)
 
 ---
 
-### 2. Weather Comparison (The 2-Week Lag)
+### 2. Weather-Case Correlation (t-2 Lag)
 
-To predict next week, we analyzed the weather from **two weeks ago** (the t-2 lag accounts for mosquito maturation + viral incubation):
+Weather from 2 weeks ago determines next week's cases. Correlation analysis for {sel_dist}:
 
-| Metric (2 Weeks Ago) | This Year ({today.year}) | Last Year ({today.year - 1}) | Impact |
-|---------------------|--------------------------|------------------------------|--------|
-| Rainfall | {rainfall_current:.0f}mm | {rainfall_last_year:.0f}mm | {'🔴 High (+' + str(int(rainfall_change)) + '% more breeding sites)' if rainfall_change > 30 else '🟡 Moderate' if rainfall_change > 0 else '🟢 Lower risk'} |
-| Humidity | {humidity_current:.0f}% | {humidity_last_year:.0f}% | {'🔴 Higher survival for adult mosquitoes' if humidity_current > humidity_last_year else '🟢 Reduced mosquito lifespan'} |
-| Avg Temp | {temp_current:.1f}°C | {temp_last_year:.1f}°C | {'🔴 Optimal for rapid viral replication' if temp_optimal else '🟡 Suboptimal range'} |
+| Weather Factor | Correlation with Cases |
+|---------------|------------------------|
+| Rainfall | {correlations['rainfall']:+.2f} {'📈 Strong' if abs(correlations['rainfall']) > 0.3 else '➖ Weak'} |
+| Temperature | {correlations['temperature']:+.2f} {'📈 Strong' if abs(correlations['temperature']) > 0.3 else '➖ Weak'} |
+| Humidity | {correlations['humidity']:+.2f} {'📈 Strong' if abs(correlations['humidity']) > 0.3 else '➖ Weak'} |
+
+**Current Weather (2 weeks ago):** {rainfall_current:.0f}mm rain, {temp_current:.1f}°C, {humidity_current:.0f}% humidity
+**Same period 2023:** {rainfall_last_year:.0f}mm rain, {temp_last_year:.1f}°C, {humidity_last_year:.0f}% humidity
 
 ---
 
-### 3. Why This Prediction? (The Logic)
+### 3. Prediction Basis
 
-The model predicts **{pred} cases** (a **{yoy_change:+.0f}%** change from last year) because:
+The model predicts **{pred} cases** based on:
 
 """
         # Add reasoning based on conditions
         if hydro_humid_active:
-            response += f"""**🔬 Hydro-Humid Interaction Score: HIGH**
-
-The heavy rains from 14 days ago ({rainfall_current:.0f}mm) combined with current {humidity_current:.0f}% humidity means that breeding pools did not evaporate, allowing a larger generation of mosquitoes to hatch and bite.
+            response += f"""**🔬 Hydro-Humid Interaction: ACTIVE**
+- High rainfall ({rainfall_current:.0f}mm) + humidity ({humidity_current:.0f}%) = more breeding sites
 
 """
         
         if temp_optimal:
-            response += f"""**🌡️ Biological Conditions: OPTIMAL**
-
-Temperature stayed within the optimal 24-30°C range ({temp_current:.1f}°C), accelerating both the mosquito lifecycle and viral replication within the vector.
+            response += f"""**🌡️ Temperature: OPTIMAL ({temp_current:.1f}°C)**
+- Within 24-30°C range for mosquito activity
 
 """
         else:
