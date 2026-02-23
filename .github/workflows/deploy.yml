@@ -1,0 +1,55 @@
+name: CI/CD Dengue Dashboard
+on:
+  push:
+    branches: [ main ] # Runs every time you push to the main branch
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build and Push Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: dengue-app-repo
+          IMAGE_TAG: latest
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+  deploy-to-ec2:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH into EC2 and Update Container
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Login to ECR on the EC2 instance
+            aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 390212478126.dkr.ecr.eu-north-1.amazonaws.com
+            
+            # Pull the latest image
+            docker pull 390212478126.dkr.ecr.eu-north-1.amazonaws.com/dengue-app-repo:latest
+            
+            # Stop and remove the old container (if it exists)
+            docker stop dengue-app || true
+            docker rm dengue-app || true
+            
+            # Run the new container
+            docker run -d --name dengue-app -p 8501:8501 390212478126.dkr.ecr.eu-north-1.amazonaws.com/dengue-app-repo:latest

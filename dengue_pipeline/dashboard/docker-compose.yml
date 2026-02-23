@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # Main Dashboard Application
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dengue-dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      # Persist data directories
+      - ./dengue_pipeline/data_raw:/app/dengue_pipeline/data_raw
+      - ./dengue_pipeline/data_processed:/app/dengue_pipeline/data_processed
+    environment:
+      - TZ=Asia/Colombo
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8501/_stcore/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Automated Data Updater (runs weekly via cron)
+  data-updater:
+    build:
+      context: .
+      dockerfile: Dockerfile.updater
+    container_name: dengue-data-updater
+    volumes:
+      # Share data directories with dashboard
+      - ./dengue_pipeline/data_raw:/app/dengue_pipeline/data_raw
+      - ./dengue_pipeline/data_processed:/app/dengue_pipeline/data_processed
+    environment:
+      - TZ=Asia/Colombo
+    restart: unless-stopped
+    depends_on:
+      - dashboard
+
+networks:
+  default:
+    name: dengue-network

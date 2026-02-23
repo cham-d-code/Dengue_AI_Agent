@@ -1,0 +1,47 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv
+ENV
+.eggs
+*.egg-info
+.pytest_cache
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Documentation (not needed in container)
+*.md
+*.pdf
+*.html
+Dengue_Model_Documentation.*
+NATIONAL_FRAMEWORK_DOCUMENTATION.md
+
+# Development files
+convert_to_pdf.py
+test_*.py
+
+# Large data files (mount as volumes instead)
+# Uncomment below if you want to exclude data from image
+# dengue_pipeline/data_raw/*.csv
+# dengue_pipeline/data_processed/*.csv
