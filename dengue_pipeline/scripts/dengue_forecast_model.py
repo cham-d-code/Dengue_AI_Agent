@@ -358,40 +358,34 @@ def main():
 
     df_feat = df_feat.dropna(subset=feature_cols + [target_col])
 
-    # ----------------- Train/test split by year ----------------- #
+    # ----------------- Train on ALL years (2021-2024) ----------------- #
 
     all_years = sorted(df_feat["year"].unique())
     print("Years in dataset after feature engineering:", all_years)
 
-    # Prefer to use 2024 as test year if available; otherwise use the latest year
+    # Train on ALL available years for maximum data
+    train_years = all_years  # Use all data for training
+    
+    # For evaluation reporting, use 2024 if available
     if 2024 in all_years:
-        test_year = 2024
+        eval_year = 2024
     else:
-        test_year = max(all_years)
+        eval_year = max(all_years)
 
-    train_years = [y for y in all_years if y < test_year]
-
-    if not train_years:
-        raise RuntimeError("No training years available (all data is in a single year).")
-
-    train_mask = df_feat["year"].isin(train_years)
-    test_mask = df_feat["year"] == test_year
-
-    train = df_feat[train_mask].copy()
-    test = df_feat[test_mask].copy()
+    train = df_feat.copy()  # Train on ALL data
+    eval_set = df_feat[df_feat["year"] == eval_year].copy()  # Eval subset for metrics
 
     if train.empty:
-        raise RuntimeError("Train set is empty after splitting. Check your data.")
-    if test.empty:
-        raise RuntimeError(f"Test set for year {test_year} is empty. Check your data.")
+        raise RuntimeError("Train set is empty. Check your data.")
 
     X_train = train[feature_cols]
     y_train = train[target_col]
-    X_test = test[feature_cols]
-    y_test = test[target_col]
+    X_eval = eval_set[feature_cols]
+    y_eval = eval_set[target_col]
 
-    print(f"Training on years: {train_years}, testing on year: {test_year}")
-    print(f"Training samples: {len(X_train)}, Test samples: {len(X_test)}")
+    print(f"Training on ALL years: {train_years}")
+    print(f"Training samples: {len(X_train)}, Eval samples ({eval_year}): {len(X_eval)}")
+
 
     # ----------------- Train model ----------------- #
 
@@ -407,45 +401,45 @@ def main():
 
     # ----------------- Evaluate ----------------- #
 
-    print(f"Evaluating on {test_year}...")
-    y_pred_raw = model.predict(X_test)
+    print(f"Evaluating on {eval_year}...")
+    y_pred_raw = model.predict(X_eval)
     
     # Apply biological constraints
-    X_test_temp = X_test["temp_avg_c"].values 
+    X_eval_temp = X_eval["temp_avg_c"].values 
     y_pred = []
-    for pred, temp in zip(y_pred_raw, X_test_temp):
+    for pred, temp in zip(y_pred_raw, X_eval_temp):
         y_pred.append(apply_biological_constraints(pred, temp))
     y_pred = np.array(y_pred)
 
-    mae = mean_absolute_error(y_test, y_pred)
-    mse = mean_squared_error(y_test, y_pred)
+    mae = mean_absolute_error(y_eval, y_pred)
+    mse = mean_squared_error(y_eval, y_pred)
     rmse = mse ** 0.5
 
-    print(f"MAE ({test_year})  = {mae:.2f} cases")
-    print(f"RMSE ({test_year}) = {rmse:.2f} cases")
+    print(f"MAE ({eval_year})  = {mae:.2f} cases")
+    print(f"RMSE ({eval_year}) = {rmse:.2f} cases")
 
-    test = test.copy()
-    test["predicted_cases"] = y_pred
+    eval_set = eval_set.copy()
+    eval_set["predicted_cases"] = y_pred
 
     # ----------------- Baseline & capacity ----------------- #
 
     baseline = compute_historical_baseline(df, train_years=train_years)
 
-    test = test.merge(
+    eval_set = eval_set.merge(
         baseline,
         on=["district", "week"],
         how="left"
     )
 
-    test["beds_needed"] = test["predicted_cases"].apply(estimate_beds_needed)
-    test["blood_units_needed"] = test["predicted_cases"].apply(estimate_blood_units_needed)
+    eval_set["beds_needed"] = eval_set["predicted_cases"].apply(estimate_beds_needed)
+    eval_set["blood_units_needed"] = eval_set["predicted_cases"].apply(estimate_blood_units_needed)
 
-    test["risk"] = test.apply(
+    eval_set["risk"] = eval_set.apply(
         lambda r: classify_risk(r["predicted_cases"], r.get("historical_avg_cases", np.nan)),
         axis=1
     )
 
-    test["recommended_actions"] = test.apply(suggest_actions, axis=1)
+    eval_set["recommended_actions"] = eval_set.apply(suggest_actions, axis=1)
 
     # ----------------- Save & print summary ----------------- #
 
@@ -459,21 +453,21 @@ def main():
     ]
 
     # Ensure only columns that actually exist
-    cols_out = [c for c in cols_out if c in test.columns]
+    cols_out = [c for c in cols_out if c in eval_set.columns]
 
-    test[cols_out].to_csv(OUT_FORECAST, index=False)
-    print(f"\nSaved detailed forecast for year {test_year} with capacity to:")
+    eval_set[cols_out].to_csv(OUT_FORECAST, index=False)
+    print(f"\nSaved detailed forecast for year {eval_year} with capacity to:")
     print(f"  {OUT_FORECAST}")
 
-    # Latest week per district in the test year
+    # Latest week per district in the eval year
     latest_per_district = (
-        test.sort_values(["district", "year", "week"])
+        eval_set.sort_values(["district", "year", "week"])
         .groupby("district")
         .tail(1)
         .sort_values("district")
     )
 
-    print(f"\n=== Latest available week per district ({test_year}) ===")
+    print(f"\n=== Latest available week per district ({eval_year}) ===")
     for _, row in latest_per_district.iterrows():
         print(f"\nDistrict: {row['district']}")
         print(f"  Year: {int(row['year'])}, Week: {int(row['week'])}")

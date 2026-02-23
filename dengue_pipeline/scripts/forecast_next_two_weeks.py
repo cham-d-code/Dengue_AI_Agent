@@ -13,7 +13,7 @@ PROJECT_ROOT = os.path.dirname(THIS_DIR)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-DATA_FILE = os.path.join(PROJECT_ROOT, "data_processed", "weekly_district_dataset_2021_2025.csv")
+DATA_FILE = os.path.join(PROJECT_ROOT, "data_processed", "weekly_district_dataset_2021_2024.csv")
 OUT_MULTI = os.path.join(PROJECT_ROOT, "data_processed", "multiweek_forecast_next_2_weeks.csv")
 OPENMETEO_FILE = os.path.join(PROJECT_ROOT, "data_raw", "weather_forecast_openmeteo_7day.csv")
 
@@ -231,27 +231,21 @@ def main():
     df_feat = df_feat.dropna(subset=feature_cols + [target_col])
 
     all_years = sorted(df_feat["year"].unique())
-    if len(all_years) < 2:
-        raise RuntimeError("Need at least 2 years of data for train/test split.")
+    if len(all_years) < 1:
+        raise RuntimeError("Need at least 1 year of data for training.")
 
-    last_year = max(all_years)
-    train_years = [y for y in all_years if y < last_year]
+    # Train on ALL available years (2021-2024) for maximum data
+    train_years = all_years  # Use all data for training
 
-    train_mask = df_feat["year"].isin(train_years)
-    test_mask = df_feat["year"] == last_year  # last year used just for evaluation (optional)
-
-    train = df_feat[train_mask].copy()
-    test = df_feat[test_mask].copy()
+    train = df_feat.copy()  # Train on all data
 
     if train.empty:
         raise RuntimeError("Train set is empty after split.")
-    if test.empty:
-        print("Warning: no explicit test set for last year; will still train on previous years.")
 
     X_train = train[feature_cols]
     y_train = train[target_col]
 
-    print(f"Training on years: {train_years}")
+    print(f"Training on ALL years: {train_years}")
     print(f"Training samples: {len(X_train)}")
 
     model = RandomForestRegressor(
@@ -262,16 +256,6 @@ def main():
     )
     print("Training model...")
     model.fit(X_train, y_train)
-
-    # Optional quick eval on last_year
-    if not test.empty:
-        X_test = test[feature_cols]
-        y_test = test[target_col]
-        y_pred = model.predict(X_test)
-        mae = mean_absolute_error(y_test, y_pred)
-        mse = mean_squared_error(y_test, y_pred)
-        rmse = mse ** 0.5
-        print(f"Quick eval on year {last_year}: MAE={mae:.2f}, RMSE={rmse:.2f}")
 
     # Baselines
     baseline_cases = compute_baseline_cases(df, train_years=train_years)

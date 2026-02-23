@@ -24,8 +24,39 @@ st.markdown("""
 * { font-family: 'Plus Jakarta Sans', sans-serif !important; }
 html, body, .stApp { background-color: #F8FAFC !important; color: #0F172A !important; }
 
-/* HIDE DEFAULT HEADER/FOOTER */
-header[data-testid="stHeader"] { display: none; }
+/* HIDE DEFAULT FOOTER ONLY - Keep header for sidebar toggle */
+header[data-testid="stHeader"] { 
+    background: transparent !important; 
+    visibility: visible !important;
+}
+header[data-testid="stHeader"] > div:first-child {
+    background: transparent !important;
+}
+/* Keep sidebar toggle button visible - HIGH CONTRAST */
+button[data-testid="stSidebarCollapseButton"],
+button[data-testid="collapsedControl"],
+button[data-testid="baseButton-headerNoPadding"] {
+    visibility: visible !important;
+    display: flex !important;
+    background-color: #1E40AF !important; /* Bright blue for contrast */
+    color: #FFFFFF !important;
+    border: 2px solid #3B82F6 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+    padding: 8px !important;
+    margin: 8px !important;
+}
+button[data-testid="stSidebarCollapseButton"]:hover,
+button[data-testid="collapsedControl"]:hover,
+button[data-testid="baseButton-headerNoPadding"]:hover {
+    background-color: #2563EB !important;
+}
+button[data-testid="stSidebarCollapseButton"] svg,
+button[data-testid="collapsedControl"] svg,
+button[data-testid="baseButton-headerNoPadding"] svg {
+    fill: #FFFFFF !important;
+    stroke: #FFFFFF !important;
+}
 footer { display: none; }
 
 
@@ -38,6 +69,33 @@ section[data-testid="stSidebar"] {
 section[data-testid="stSidebar"] * {
     color: #F8FAFC !important; /* White text */
 }
+
+/* Hide broken Material Icons text (keyboard_double_) but keep button functional */
+button[data-testid="stSidebarCollapseButton"] span {
+    font-size: 0 !important;
+    color: transparent !important;
+}
+
+/* Style the sidebar collapse button - show as arrow */
+button[data-testid="stSidebarCollapseButton"] {
+    display: flex !important;
+    visibility: visible !important;
+    background-color: #1E40AF !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 10px !important;
+    margin: 8px !important;
+    cursor: pointer !important;
+}
+
+/* Add arrow icon using ::before pseudo-element */
+button[data-testid="stSidebarCollapseButton"]::before {
+    content: "←" !important;
+    font-size: 18px !important;
+    color: #FFFFFF !important;
+    font-weight: bold !important;
+}
+
 
 /* Sidebar selectbox override */
 section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
@@ -748,11 +806,11 @@ div[data-testid="stChatMessage"] p {
     color: #202124 !important;
 }
 
-/* White send button with white arrow icon */
+/* White send button with dark arrow icon */
 div[data-testid="column"]:last-child button {
-    background-color: #0F172A !important;
-    color: #FFFFFF !important;
-    border: none !important;
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
+    border: 1px solid #E2E8F0 !important;
     border-radius: 8px !important;
     padding: 12px 16px !important;
     font-size: 18px !important;
@@ -762,14 +820,24 @@ div[data-testid="column"]:last-child button {
 div[data-testid="column"]:last-child button p,
 div[data-testid="column"]:last-child button span,
 div[data-testid="column"]:last-child button div {
-    color: #FFFFFF !important;
+    color: #0F172A !important;
 }
 div[data-testid="column"]:last-child button:hover,
 div[data-testid="column"]:last-child button:focus,
 div[data-testid="column"]:last-child button:active {
-    background-color: #0F172A !important;
-    color: #FFFFFF !important;
-    border: none !important;
+    background-color: #F1F5F9 !important;
+    color: #0F172A !important;
+    border: 1px solid #CBD5E1 !important;
+}
+/* Make text input white */
+div[data-testid="stTextInput"] input {
+    background-color: #FFFFFF !important;
+    color: #202124 !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 8px !important;
+}
+div[data-testid="stTextInput"] input::placeholder {
+    color: #94A3B8 !important;
 }
 </style>
 

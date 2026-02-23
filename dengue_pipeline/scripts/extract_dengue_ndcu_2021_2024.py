@@ -5,7 +5,7 @@ import pdfplumber
 import pandas as pd
 
 IN_DIR = "data_raw/dengue_pdfs"
-OUT_FILE = "data_processed/dengue_weekly_district_2021_2025.csv"
+OUT_FILE = "data_processed/dengue_weekly_district_2021_2024.csv"
 
 os.makedirs("data_processed", exist_ok=True)
 

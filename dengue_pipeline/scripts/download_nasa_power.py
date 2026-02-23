@@ -65,7 +65,7 @@ def main():
         lat, lon = coords["lat"], coords["lon"]
         out_path = os.path.join(
             OUT_DIR,
-            f"nasa_daily_{district.replace(' ', '_')}_2010_2025.csv"
+            f"nasa_daily_{district.replace(' ', '_')}_2010_2024.csv"
         )
 
         if os.path.exists(out_path):
