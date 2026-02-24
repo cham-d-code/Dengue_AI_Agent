@@ -2,7 +2,7 @@ name: CI/CD Dengue Dashboard
 
 on:
   push:
-    branches: [ main ] # Triggered every time you push to the main branch
+    branches: [ main ]
 
 jobs:
   build-and-push:
@@ -28,11 +28,8 @@ jobs:
           ECR_REPOSITORY: dengue-app-repo
           IMAGE_TAG: latest
         run: |
-          # Go to the folder containing the Dockerfile and code
-          cd dengue_pipeline/dashboard
-          # Build the image using the local context
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          # Push to ECR
+          # Build from root context (.) using the subfolder Dockerfile (-f)
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f dengue_pipeline/dashboard/Dockerfile .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
   deploy-to-ec2:
@@ -46,23 +43,16 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 1. Login to ECR inside the EC2 instance
             aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 390212478126.dkr.ecr.eu-north-1.amazonaws.com
-            
-            # 2. Pull the latest image from ECR
             docker pull 390212478126.dkr.ecr.eu-north-1.amazonaws.com/dengue-app-repo:latest
             
-            # 3. Clean up existing containers on port 8501 to prevent 'Port already allocated' errors
-            # This finds any container using port 8501 and stops/removes it
+            # Stop any container using port 8501
             docker ps -q --filter "publish=8501" | xargs -r docker stop
             docker ps -aq --filter "publish=8501" | xargs -r docker rm
             
-            # 4. Run the new container in detached mode
+            # Run new container
             docker run -d \
               --name dengue-app \
               --restart always \
               -p 8501:8501 \
               390212478126.dkr.ecr.eu-north-1.amazonaws.com/dengue-app-repo:latest
-            
-            # 5. Optional: Clean up old unused images to save disk space on EC2
-            docker image prune -f
