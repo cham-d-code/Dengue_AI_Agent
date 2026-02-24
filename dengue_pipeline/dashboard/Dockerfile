@@ -33,5 +33,5 @@ ENV STREAMLIT_SERVER_PORT=8501
 ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
 ENV TZ=Asia/Colombo
 
-# Run Streamlit
-CMD ["streamlit", "run", "dengue_pipeline/dashboard/app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]
+# Ensure headless mode is true and we bind to all interfaces
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true", "--browser.gatherUsageStats=false"]]

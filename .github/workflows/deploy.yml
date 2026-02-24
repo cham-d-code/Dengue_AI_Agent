@@ -28,9 +28,11 @@ jobs:
           ECR_REPOSITORY: dengue-app-repo
           IMAGE_TAG: latest
         run: |
-          # Build the Docker image
+          # Go to the folder containing the Dockerfile and code
+          cd dengue_pipeline/dashboard
+          # Build the image using the local context
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          # Push it to your AWS ECR
+          # Push to ECR
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
   deploy-to-ec2:
