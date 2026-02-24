@@ -2,7 +2,7 @@ name: CI/CD Dengue Dashboard
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ] # Triggered every time you push to the main branch
 
 jobs:
   build-and-push:
@@ -30,6 +30,7 @@ jobs:
         run: |
           # Build from root context (.) using the subfolder Dockerfile (-f)
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f dengue_pipeline/dashboard/Dockerfile .
+          # Push it to your AWS ECR
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
   deploy-to-ec2:
@@ -43,16 +44,26 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            # 1. Login to ECR inside the EC2 instance
             aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 390212478126.dkr.ecr.eu-north-1.amazonaws.com
+            
+            # 2. Pull the newest image from ECR
             docker pull 390212478126.dkr.ecr.eu-north-1.amazonaws.com/dengue-app-repo:latest
             
-            # Stop any container using port 8501
+            # 3. FORCE remove container by NAME to prevent name conflicts
+            # '|| true' ensures the pipeline continues even if no container exists to delete
+            docker rm -f dengue-app || true
+            
+            # 4. Cleanup any other container stuck on port 8501 for safety
             docker ps -q --filter "publish=8501" | xargs -r docker stop
             docker ps -aq --filter "publish=8501" | xargs -r docker rm
             
-            # Run new container
+            # 5. Run the new container in detached mode with auto-restart
             docker run -d \
               --name dengue-app \
               --restart always \
               -p 8501:8501 \
               390212478126.dkr.ecr.eu-north-1.amazonaws.com/dengue-app-repo:latest
+            
+            # 6. Cleanup unused images to save disk space on the t3.micro
+            docker image prune -f
