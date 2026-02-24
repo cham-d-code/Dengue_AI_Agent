@@ -25,4 +25,4 @@ WORKDIR /app/dengue_pipeline/dashboard
 EXPOSE 8501
 
 # Run Streamlit with headless flags to prevent Exited(0)
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true", "--browser.gatherUsageStats=false"]
+CMD streamlit run app.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true --browser.gatherUsageStats=false
